@@ -1,0 +1,20 @@
+# Application configuration
+app:
+  name: "Our digital islamic world backend"
+  description: "Description of your application"
+
+# OpenSearch connection details
+opensearch:
+  host: "localhost"
+  port: "9200"
+  username: "your_opensearch_username"
+  password: "yourStrongPassword123!"
+
+# Web server configuration
+server:
+  host: "localhost"
+  port: "8080"
+
+# Logging configuration
+logging:
+  log_level: "info"
