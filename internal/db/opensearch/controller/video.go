@@ -51,50 +51,77 @@ func InsertOrUpdateVideo(video *models.Video) error {
 	return nil
 }
 
-func SearchVideos(query string) ([]*models.Video, error) {
-	// Create search request
+// SearchVideos queries the OpenSearch index for videos matching the query with pagination
+func SearchVideos(query string, from int, size int) (int, []*models.Video, error) {
+	// Create search request with pagination
 	searchRequest := map[string]interface{}{
+		"from": from,
+		"size": size,
 		"query": map[string]interface{}{
-			"match": map[string]interface{}{
-				"title": query,
+			"multi_match": map[string]interface{}{
+				"query":  query,
+				"fields": []string{"title", "description", "tags", "categories"},
 			},
 		},
+		"track_total_hits": true, // Ensure total hits is tracked
 	}
 
 	// Serialize search request to JSON
 	searchData, err := json.Marshal(searchRequest)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
+
+	// Perform search request
+	searchReq := strings.NewReader(string(searchData))
 
 	// Perform search request
 	res, err := connect.Client.Search(
 		context.Background(),
 		&opensearchapi.SearchReq{
-			Body: strings.NewReader(string(searchData)),
+			Indices: []string{"videos"},
+			Body:    searchReq,
 		},
-		// connect.Client.Search.WithIndex("videos"),
-		// connect.Client.Search.WithBody(strings.NewReader(string(searchData))),
 	)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	fmt.Printf("Search hits: %v\n", res.Hits.Total.Value)
 
-	// defer res.Body.Close()
+	// Check if the search response is an error
+	if res.Inspect().Response.IsError() {
+		return 0, nil, fmt.Errorf("search response error: %v", res.Errors)
+	}
 
 	// Parse search response
 	var searchResponse map[string]interface{}
 	if err := json.NewDecoder(res.Inspect().Response.Body).Decode(&searchResponse); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	// Extract video results from search response
-	var videos []*models.Video
-	// Implement extraction logic based on your response structure
-	// Example: videos := extractVideos(searchResponse)
-
-	return videos, nil
+	hits := searchResponse["hits"].(map[string]interface{})["hits"].([]interface{})
+	videos := make([]*models.Video, len(hits))
+	for i, hit := range hits {
+		videoData := hit.(map[string]interface{})["_source"]
+		videoBytes, _ := json.Marshal(videoData)
+		var video models.Video
+		if err := json.Unmarshal(videoBytes, &video); err != nil {
+			return 0, nil, err
+		}
+		videos[i] = &video
+	}
+	// total := searchResponse["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"].(int),
+	// Extract total hits count
+	totalHits := searchResponse["hits"].(map[string]interface{})["total"]
+	var total int
+	switch totalHits := totalHits.(type) {
+	case map[string]interface{}:
+		total = int(totalHits["value"].(float64))
+	case float64:
+		total = int(totalHits)
+	}
+	return total, videos, nil
 }
 
 func DeleteVideo(videoID string) error {
@@ -126,26 +153,35 @@ func DeleteVideo(videoID string) error {
 }
 
 func GetVideoByID(videoID string) (*models.Video, error) {
+	ctx := context.Background()
+	// Check if the "videos" index exists in the OpenSearch cluster
+	indexExists, err := connect.Client.Indices.Exists(ctx, opensearchapi.IndicesExistsReq{
+		Indices: []string{"videos"},
+	})
+	if err != nil && indexExists.StatusCode != 404 {
+		return nil, fmt.Errorf("error checking if index exists: %w", err)
+	}
+
+	if indexExists.StatusCode != 200 {
+		_, err := connect.Client.Indices.Create(ctx, opensearchapi.IndicesCreateReq{
+			Index: "videos",
+			Body:  strings.NewReader(""),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error while creating index")
+		}
+	}
+
 	// Create a request to retrieve the document by ID
 	req := opensearchapi.DocumentGetReq{
 		Index:      "videos",
 		DocumentID: videoID,
 	}
 
-	getResponse, err := connect.Client.Document.Get(context.Background(), req)
+	getResponse, err := connect.Client.Document.Get(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	// Execute the request
-	// res, err := req.Do(context.Background(), connect.Client)
-	// if err != nil {
-	// 	fmt.Println(err, "err")
-
-	// 	return nil, err
-	// }
-	// defer res.Body.Close()
-	fmt.Printf("getresponse document: %t\n", getResponse.Found)
-
 	// Check if the document exists
 	if getResponse.Inspect().Response.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("video with ID %s not found", videoID)
@@ -155,7 +191,8 @@ func GetVideoByID(videoID string) (*models.Video, error) {
 
 	// Parse the response body into a video object
 	var video models.Video
-	if err := json.NewDecoder(getResponse.Inspect().Response.Body).Decode(&video); err != nil {
+	err = json.Unmarshal(getResponse.Source, &video)
+	if err != nil {
 		return nil, fmt.Errorf("error decoding video response: %s", err)
 	}
 

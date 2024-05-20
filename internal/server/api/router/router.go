@@ -12,9 +12,9 @@ func SetupRoutes(app *fiber.App) *fiber.App {
 
 	// routers
 
-	app.Get("/api/youtube/video", handler.InsertOrUpdateVideo)
+	app.Post("/api/youtube/video", handler.InsertOrUpdateVideo)
 	app.Get("/api/youtube/video/:videoId", handler.GetVideo)
-	app.Get("/api/youtube/search", handler.SearchVideos)
+	app.Post("/api/youtube/search", handler.SearchVideos)
 
 	// Creator Routes
 	app.Post("/api/youtube/creator", handler.InsertOrUpdateCreator)

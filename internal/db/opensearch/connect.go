@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
-	"time"
 
 	"github.com/shaik80/ODIW/config"
 
@@ -22,14 +20,11 @@ var Client *opensearchapi.Client
 func InitOpenSearchClient(cfg config.Config) error {
 	opensearchCfg := opensearch.Config{
 		Transport: &http.Transport{
-			MaxIdleConnsPerHost:   10,
-			ResponseHeaderTimeout: time.Second,
-			DialContext:           (&net.Dialer{Timeout: time.Second}).DialContext,
 			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
+				InsecureSkipVerify: true,
 			},
 		}, Addresses: []string{
-			fmt.Sprintf("http://%s:%s", cfg.OpenSearch.Host, cfg.OpenSearch.Port),
+			fmt.Sprintf("https://%s:%s", cfg.OpenSearch.Host, cfg.OpenSearch.Port),
 		},
 		Username: cfg.OpenSearch.Username,
 		Password: cfg.OpenSearch.Password,

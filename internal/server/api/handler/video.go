@@ -14,8 +14,17 @@ import (
 )
 
 func InsertOrUpdateVideo(c *fiber.Ctx) error {
+	// Parse request body
+	var requestBody struct {
+		VideoID    string   `json:"video_id"`
+		Categories []string `json:"categories"`
+	}
 
-	videoID := c.Query("video_id")
+	if err := c.BodyParser(&requestBody); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "error parsing request body"})
+	}
+
+	videoID := requestBody.VideoID
 	if videoID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_id parameter is required"})
 	}
@@ -38,11 +47,12 @@ func InsertOrUpdateVideo(c *fiber.Ctx) error {
 	}
 	response.Data.VideoID = videoID
 
+	// Add categories to the video data
+	response.Data.Categories = requestBody.Categories
+
 	// Check if the video already exists in OpenSearch
-	existingVideo, err := db.GetVideoByID(response.Data.VideoID)
-	if err != nil {
-		return err
-	}
+	existingVideo, _ := db.GetVideoByID(response.Data.VideoID)
+
 	// Insert or update the video
 	if existingVideo == nil {
 		// Video does not exist, insert it
@@ -62,12 +72,67 @@ func InsertOrUpdateVideo(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "Video inserted/updated successfully"})
 }
 
+// GetVideo retrieves a video by its ID from OpenSearch and returns it in the response
 func GetVideo(c *fiber.Ctx) error {
-	return nil
+	// Retrieve the video_id parameter from the request
+	videoID := c.Params("videoId")
+	if videoID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_id parameter is required"})
+	}
+
+	// Fetch the video details from OpenSearch using the GetVideoByID function
+	video, err := db.GetVideoByID(videoID)
+	if err != nil {
+		// Check if the error is due to the video not being found
+		if err.Error() == "video with ID "+videoID+" not found" {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "youtube video not found"})
+		}
+		// For other errors, return a 500 Internal Server Error response
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "youtube video not found"})
+	}
+
+	// Return the video details in the response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"video": video})
 }
 
+// SearchVideos searches for videos in the OpenSearch index based on a query parameter with pagination
+
 func SearchVideos(c *fiber.Ctx) error {
-	return nil
+	// Parse request body
+	var req models.SearchVideosRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	// Validate the query parameter
+	if req.Query == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "query parameter is required"})
+	}
+
+	// Set default pagination parameters if not provided
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.Size <= 0 {
+		req.Size = 10
+	}
+
+	// Calculate the starting point for pagination
+	from := (req.Page - 1) * req.Size
+
+	// Perform the search operation in the database
+	total, videos, err := db.SearchVideos(req.Query, from, req.Size)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "error searching for videos"})
+	}
+
+	// Return the search results with pagination information
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"page":   req.Page,
+		"size":   req.Size,
+		"total":  total,
+		"videos": videos,
+	})
 }
 
 // NewRequest sends a GET request to the video info endpoint and returns the response body.

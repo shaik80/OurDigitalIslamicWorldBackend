@@ -7,7 +7,7 @@ app:
 opensearch:
   host: "127.0.0.1"
   port: "9200"
-  username: "your_opensearch_username"
+  username: "admin"
   password: "yourStrongPassword123!"
 
 # Web server configuration

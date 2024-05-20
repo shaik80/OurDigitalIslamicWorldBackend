@@ -18,6 +18,7 @@ type Video struct {
 	IsShort        bool           `json:"isShort"`
 	CreatorDetails CreatorDetails `json:"creatorDetails"`
 	LastUpdated    string         `json:"lastUpdated"`
+	Categories     []string       `json:"categories"`
 }
 
 type Thumbnail struct {
