@@ -5,12 +5,23 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"shaik80/ODIW/config"
-	connect "shaik80/ODIW/internal/db/opensearch"
-	"shaik80/ODIW/internal/server"
+	"os"
+	"strings"
+
+	"github.com/shaik80/ODIW/config"
+	connect "github.com/shaik80/ODIW/internal/db/opensearch"
+	"github.com/shaik80/ODIW/internal/server"
+
+	lp "github.com/shaik80/ODIW/utils/logger"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+var (
+	configFile   string
+	debugMode    bool
+	configPrefix = "./config/"
 )
 
 // serveCmd represents the serve command
@@ -26,30 +37,51 @@ to quickly create a Cobra application.`,
 }
 
 func ServeFunc(cmd *cobra.Command, args []string) {
-	// Load configuration
-	if err := config.Load(); err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+
+	// If configFile is specified, use it; otherwise, use default configuration file
+	configFileName := configFile
+	if configFileName == "" {
+		configFileName = "config.yaml"
+	}
+	viper.SetConfigFile(configPrefix + configFileName)
+
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println("Can't read config file:", err)
+		os.Exit(1)
 	}
 
-	// Get configuration values
-	cfg := config.GetConfig()
-	addr := cfg.Server.Host
-	port := cfg.Server.Port
-
-	// Initialize OpenSearch client
-	if err := connect.InitOpenSearchClient(); err != nil {
-		log.Fatalf("Failed to create OpenSearch client: %v", err)
+	// Unmarshal config into struct
+	if err := viper.Unmarshal(&config.Cfg); err != nil {
+		fmt.Println("Can't unmarshal config:", err)
+		os.Exit(1)
 	}
 
-	// Initialize OpenSearch in controllers
-	// controllers.InitOpenSearch(connect.Client)
-
-	// Initialize the server
-	app := server.New()
-	log.Printf("Server is running on %s:%s", addr, port)
-	if err := app.Listen(fmt.Sprintf("%s:%s", addr, port)); err != nil {
-		log.Fatalf("Error starting server: %v", err)
+	// Set log level from config or default to "info"
+	logLevel := strings.ToLower(config.Cfg.Logging.LogLevel)
+	enum, ok := map[string]lp.LogLevel{
+		"debug": lp.Debug,
+		"info":  lp.Info,
+		"warn":  lp.Warn,
+		"error": lp.Error,
+	}[logLevel]
+	if !ok {
+		fmt.Printf("Invalid log level: %s\n", logLevel)
+		os.Exit(1)
 	}
+
+	// Set up logger with the configured log level
+	lp.Logs = lp.ConfigurableLogger{
+		LogLevel: enum,
+	}
+
+	err := connect.InitOpenSearchClient(config.Cfg)
+	if err != nil {
+		fmt.Printf("failed to connect to database", err)
+		os.Exit(1)
+	}
+	server.SetupGofiber()
 }
 
 func init() {
@@ -64,4 +96,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file (default is config.yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&debugMode, "debug", "d", false, "enable debug mode")
 }

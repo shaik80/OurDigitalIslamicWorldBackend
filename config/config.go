@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var Cfg Config
+
 // Config holds the configuration values for the application
 type Config struct {
 	App        AppConfig     `yaml:"app"`
@@ -36,7 +38,7 @@ type ServerConfig struct {
 
 // LoggingConfig holds the configuration for logging
 type LoggingConfig struct {
-	LogLevel string `yaml:"log_level"`
+	LogLevel string `yaml:"loglevel"`
 }
 
 var (

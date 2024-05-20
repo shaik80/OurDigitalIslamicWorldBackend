@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	db "shaik80/ODIW/internal/db/opensearch/controller"
-	"shaik80/ODIW/internal/models"
+
+	db "github.com/shaik80/ODIW/internal/db/opensearch/controller"
+	"github.com/shaik80/ODIW/internal/models"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -25,8 +26,6 @@ func InsertOrUpdateVideo(c *fiber.Ctx) error {
 		return err
 	}
 
-	fmt.Println(string(body))
-
 	// Parse JSON response
 	var response models.VideoResponse
 	if err := json.Unmarshal(body, &response); err != nil {
@@ -37,6 +36,7 @@ func InsertOrUpdateVideo(c *fiber.Ctx) error {
 	if err := ValidateVideo(&response.Data); err != nil {
 		return err
 	}
+	response.Data.VideoID = videoID
 
 	// Check if the video already exists in OpenSearch
 	existingVideo, err := db.GetVideoByID(response.Data.VideoID)
@@ -46,7 +46,6 @@ func InsertOrUpdateVideo(c *fiber.Ctx) error {
 	// Insert or update the video
 	if existingVideo == nil {
 		// Video does not exist, insert it
-		response.Data.VideoID = videoID
 		if err := db.InsertVideo(&response.Data); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}

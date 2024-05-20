@@ -17,4 +17,4 @@ server:
 
 # Logging configuration
 logging:
-  log_level: "info"
+  loglevel: "info"

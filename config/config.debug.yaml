@@ -5,7 +5,7 @@ app:
 
 # OpenSearch connection details
 opensearch:
-  host: "localhost"
+  host: "127.0.0.1"
   port: "9200"
   username: "your_opensearch_username"
   password: "yourStrongPassword123!"
@@ -17,4 +17,4 @@ server:
 
 # Logging configuration
 logging:
-  log_level: "info"
+  loglevel: "info"

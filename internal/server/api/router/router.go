@@ -1,13 +1,12 @@
 package router
 
 import (
-	"shaik80/ODIW/internal/server/api/handler"
-
 	"github.com/gofiber/fiber/v2"
+	"github.com/shaik80/ODIW/internal/server/api/handler"
 )
 
 // Setup initializes and returns the Fiber app with defined routes
-func Setup(app *fiber.App) *fiber.App {
+func SetupRoutes(app *fiber.App) *fiber.App {
 	// Initialize Handler
 	// register Handlers
 
