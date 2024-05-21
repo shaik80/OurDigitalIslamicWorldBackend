@@ -74,7 +74,6 @@ func SearchVideos(query string, from int, size int) (int, []*models.Video, error
 
 	// Perform search request
 	searchReq := strings.NewReader(string(searchData))
-
 	// Perform search request
 	res, err := connect.Client.Search(
 		context.Background(),
@@ -121,6 +120,131 @@ func SearchVideos(query string, from int, size int) (int, []*models.Video, error
 	case float64:
 		total = int(totalHits)
 	}
+	return total, videos, nil
+}
+
+func GetAllCategories() ([]string, error) {
+	// Create a search request to get all categories
+	searchRequest := map[string]interface{}{
+		"size": 0,
+		"aggs": map[string]interface{}{
+			"unique_categories": map[string]interface{}{
+				"terms": map[string]interface{}{
+					"field": "categories.keyword",
+					"size":  1000,
+				},
+			},
+		},
+	}
+
+	// Serialize search request to JSON
+	searchData, err := json.Marshal(searchRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Perform search request
+	res, err := connect.Client.Search(
+		context.Background(),
+		&opensearchapi.SearchReq{
+			Indices: []string{"videos"},
+			Body:    strings.NewReader(string(searchData)),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the search response is an error
+	if res.Inspect().Response.IsError() {
+		return nil, fmt.Errorf("search response error: %v", res.Errors)
+	}
+
+	// Parse search response
+	var searchResponse map[string]interface{}
+	if err := json.NewDecoder(res.Inspect().Response.Body).Decode(&searchResponse); err != nil {
+		return nil, err
+	}
+
+	// Extract unique categories from search response
+	buckets := searchResponse["aggregations"].(map[string]interface{})["unique_categories"].(map[string]interface{})["buckets"].([]interface{})
+	categories := make([]string, len(buckets))
+	for i, bucket := range buckets {
+		categories[i] = bucket.(map[string]interface{})["key"].(string)
+	}
+
+	return categories, nil
+}
+
+// SearchVideosByCategory queries the OpenSearch index for videos matching the category with pagination
+func SearchVideosByCategory(category string, from int, size int) (int, []*models.Video, error) {
+	// Create search request with pagination
+	searchRequest := map[string]interface{}{
+		"from": from,
+		"size": size,
+		"query": map[string]interface{}{
+			"match": map[string]interface{}{
+				"categories": category,
+			},
+		},
+		"track_total_hits": true, // Ensure total hits is tracked
+	}
+
+	// Serialize search request to JSON
+	searchData, err := json.Marshal(searchRequest)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Perform search request
+	searchReq := strings.NewReader(string(searchData))
+
+	// Perform search request
+	res, err := connect.Client.Search(
+		context.Background(),
+		&opensearchapi.SearchReq{
+			Indices: []string{"videos"},
+			Body:    searchReq,
+		},
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Check if the search response is an error
+	if res.Inspect().Response.IsError() {
+		return 0, nil, fmt.Errorf("search response error: %v", res.Errors)
+	}
+
+	// Parse search response
+	var searchResponse map[string]interface{}
+	if err := json.NewDecoder(res.Inspect().Response.Body).Decode(&searchResponse); err != nil {
+		return 0, nil, err
+	}
+
+	// Extract video results from search response
+	hits := searchResponse["hits"].(map[string]interface{})["hits"].([]interface{})
+	videos := make([]*models.Video, len(hits))
+	for i, hit := range hits {
+		videoData := hit.(map[string]interface{})["_source"]
+		videoBytes, _ := json.Marshal(videoData)
+		var video models.Video
+		if err := json.Unmarshal(videoBytes, &video); err != nil {
+			return 0, nil, err
+		}
+		videos[i] = &video
+	}
+
+	// Extract total hits count
+	totalHits := searchResponse["hits"].(map[string]interface{})["total"]
+	var total int
+	switch totalHits := totalHits.(type) {
+	case map[string]interface{}:
+		total = int(totalHits["value"].(float64))
+	case float64:
+		total = int(totalHits)
+	}
+
 	return total, videos, nil
 }
 

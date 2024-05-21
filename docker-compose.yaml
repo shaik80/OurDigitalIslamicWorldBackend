@@ -1,18 +1,16 @@
 version: '3.8'
 
 services:
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - .:/app
-  #   depends_on:
-  #     - opensearch
-  #   environment:
-  #     - CONFIG_PATH=/app/config.yaml
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      - opensearch
 
   opensearch:
     image: opensearchproject/opensearch:latest

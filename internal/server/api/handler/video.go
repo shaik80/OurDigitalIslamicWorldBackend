@@ -135,6 +135,88 @@ func SearchVideos(c *fiber.Ctx) error {
 	})
 }
 
+func GetBannerVideos(c *fiber.Ctx) error {
+	_, videos, err := db.SearchVideosByCategory("banner", 0, 10)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "requested data not found"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"videos": videos,
+	})
+}
+
+func GetAllCategories(c *fiber.Ctx) error {
+	categories, err := db.GetAllCategories()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"categories": categories})
+}
+
+// GetVideosByCategory retrieves videos by a specific category
+func GetVideosByCategory(c *fiber.Ctx) error {
+	category := c.Params("category")
+	if category == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "category parameter is required"})
+	}
+
+	// Get pagination parameters
+	page := c.QueryInt("page", 1)
+	size := c.QueryInt("size", 10)
+
+	// Calculate the starting point for pagination
+	from := (page - 1) * size
+
+	total, videos, err := db.SearchVideosByCategory(category, from, size)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "requested data not found"})
+	}
+
+	// Return the search results with pagination information
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"page":   page,
+		"size":   size,
+		"total":  total,
+		"videos": videos,
+	})
+}
+
+// RemoveCategoryByID removes a specific category from a video by its ID
+func RemoveCategoryByID(c *fiber.Ctx) error {
+	videoID := c.Params("video_id")
+	if videoID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_id parameter is required"})
+	}
+
+	category := c.Query("category")
+	if category == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "category parameter is required"})
+	}
+
+	// Fetch the video by ID
+	existingVideo, err := db.GetVideoByID(videoID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "error fetching video"})
+	}
+
+	// Remove the category from the video
+	updatedCategories := []string{}
+	for _, cat := range existingVideo.Categories {
+		if cat != category {
+			updatedCategories = append(updatedCategories, cat)
+		}
+	}
+	existingVideo.Categories = updatedCategories
+
+	if err := db.UpdateVideo(existingVideo); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "Category removed successfully"})
+}
+
 // NewRequest sends a GET request to the video info endpoint and returns the response body.
 func NewRequest(videoID string) ([]byte, error) {
 	url := fmt.Sprintf("https://yig-video-downloader-backend.vercel.app/get_youtube_video_info?url=https://www.youtube.com/watch?v=%s&details=true", videoID)

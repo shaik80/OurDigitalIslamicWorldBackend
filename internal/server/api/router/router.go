@@ -11,6 +11,10 @@ func SetupRoutes(app *fiber.App) *fiber.App {
 	// register Handlers
 
 	// routers
+	app.Get("/api/youtube/banner", handler.GetBannerVideos)
+	app.Get("/api/youtube/categories", handler.GetAllCategories)
+	app.Get("/api/youtube/videos/category/:category", handler.GetVideosByCategory)
+	app.Delete("/api/youtube/videos/:video_id/category", handler.RemoveCategoryByID)
 
 	app.Post("/api/youtube/video", handler.InsertOrUpdateVideo)
 	app.Get("/api/youtube/video/:videoId", handler.GetVideo)
