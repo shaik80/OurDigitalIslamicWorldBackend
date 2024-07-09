@@ -2,11 +2,11 @@
     "version": 2,
     "builds": [
       {
-        "src": "*.go",
+        "src": "./*.go",
         "use": "@vercel/go",
         "config": {
           "zeroConfig": true,
-          "buildCommand": "go build -o main *.go"
+          "buildCommand": "go build -o main ./*.go"
         }
       }
     ],
