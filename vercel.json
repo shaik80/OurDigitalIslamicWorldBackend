@@ -2,17 +2,19 @@
     "version": 2,
     "builds": [
       {
-        "src": "./*.go serve",
-        "use": "@vercel/go"
+        "src": "main.go",
+        "use": "@vercel/go",
+        "config": {
+          "zeroConfig": true,
+          "buildCommand": "go build -o main main.go"
+        }
       }
     ],
     "routes": [
-      { "src": "/(.*)", "dest": "/api" }
+      { "src": "/(.*)", "dest": "/main serve --config ./config/config.yaml --debug true" }
     ],
-    "build": {
-        "env": {
-        "GO_BUILD_FLAGS": "-ldflags '-s -w'"
-        }
+    "env": {
+      "GO_BUILD_FLAGS": "-ldflags '-s -w'"
     }
   }
-    
+  

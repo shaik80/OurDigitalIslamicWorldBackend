@@ -13,7 +13,7 @@ opensearch:
 # Web server configuration
 server:
   host: "localhost"
-  port: "8080"
+  port: ""
 
 # Logging configuration
 logging:
