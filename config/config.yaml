@@ -5,7 +5,7 @@ app:
 
 # OpenSearch connection details
 opensearch:
-  host: "opensearch"
+  host: "127.0.0.1"
   port: "9200"
   username: "admin"
   password: "yourStrongPassword123!"

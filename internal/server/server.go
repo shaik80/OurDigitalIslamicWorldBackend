@@ -36,4 +36,23 @@ func useCustomLoggerMiddleware(app *fiber.App) {
 
 	// Use the custom logger middleware
 	app.Use(customLogger)
+	app.Use(corsMiddleware)
+
+}
+
+// corsMiddleware adds CORS headers to the response
+func corsMiddleware(c *fiber.Ctx) error {
+	c.Set("Access-Control-Allow-Origin", "*") // Allow all origins
+
+	// Optional CORS headers
+	c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	c.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Handle preflight requests
+	if c.Method() == fiber.MethodOptions {
+		c.Status(fiber.StatusOK)
+		return nil
+	}
+
+	return c.Next()
 }

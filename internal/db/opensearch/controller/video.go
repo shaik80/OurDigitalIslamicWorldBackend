@@ -323,6 +323,32 @@ func GetVideoByID(videoID string) (*models.Video, error) {
 	return &video, nil
 }
 
+func DeleteVideoByID(videoID string) error {
+	// Create delete request
+	req := opensearchapi.DocumentDeleteReq{
+		Index:      "videos",
+		DocumentID: videoID,
+		Params: opensearchapi.DocumentDeleteParams{
+			Refresh: "true",
+		},
+	}
+
+	deleteResponse, err := connect.Client.Document.Delete(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	// Check if the delete operation was successful
+	if deleteResponse.Inspect().Response.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("video with ID %s not found", videoID)
+	} else if deleteResponse.Inspect().Response.IsError() {
+		return fmt.Errorf("error deleting video with ID %s: %s", videoID, deleteResponse.Inspect().Response.Status())
+	}
+
+	fmt.Printf("Deleted document with ID %s\n", videoID)
+	return nil
+}
+
 func InsertVideo(videos *models.Video) error {
 	// Serialize video object to JSON
 	data, err := json.Marshal(videos)

@@ -95,6 +95,28 @@ func GetVideo(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"video": video})
 }
 
+func DeleteVideo(c *fiber.Ctx) error {
+	// Retrieve the video_id parameter from the request
+	videoID := c.Params("videoId")
+	if videoID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "video_id parameter is required"})
+	}
+
+	// Delete the video from OpenSearch using the DeleteVideoByID function
+	err := db.DeleteVideoByID(videoID)
+	if err != nil {
+		// Check if the error is due to the video not being found
+		if err.Error() == "video with ID "+videoID+" not found" {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "youtube video not found"})
+		}
+		// For other errors, return a 500 Internal Server Error response
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete youtube video"})
+	}
+
+	// Return a success message in the response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "youtube video deleted successfully"})
+}
+
 // SearchVideos searches for videos in the OpenSearch index based on a query parameter with pagination
 
 func SearchVideos(c *fiber.Ctx) error {

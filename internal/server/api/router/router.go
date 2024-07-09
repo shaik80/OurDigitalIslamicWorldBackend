@@ -18,6 +18,7 @@ func SetupRoutes(app *fiber.App) *fiber.App {
 
 	app.Post("/api/youtube/video", handler.InsertOrUpdateVideo)
 	app.Get("/api/youtube/video/:videoId", handler.GetVideo)
+	app.Delete("/api/youtube/video/:videoId", handler.DeleteVideo)
 	app.Post("/api/youtube/search", handler.SearchVideos)
 
 	// Creator Routes
