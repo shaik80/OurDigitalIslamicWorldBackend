@@ -27,5 +27,9 @@ func SetupRoutes(app *fiber.App) *fiber.App {
 	app.Get("/api/youtube/creators", handler.GetCreators)
 	app.Get("/api/youtube/creator/:creatorId/videos", handler.GetVideosByCreator)
 
+	app.Get("/s", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"Hello": "world"})
+	})
+
 	return app
 }
